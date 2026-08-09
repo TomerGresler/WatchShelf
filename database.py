@@ -63,6 +63,4 @@ seed_movie("Movie I Regret Watching", 2005, "drama", status="watched", rating=1,
 conn.commit()
 
 c.execute("SELECT * FROM movies")
-print(c.fetchall())
-
 
