@@ -1,5 +1,7 @@
 import sqlite3
-conn = sqlite3.connect('database.db')
+import os
+conn = sqlite3.connect(os.environ.get('WATCHSHELF_DB', 'database.db'), check_same_thread=False)
+conn.execute("PRAGMA foreign_keys = ON")
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 
@@ -26,7 +28,7 @@ def get_movie_by_id(movie_id):
 def _movie_dict(movie):
     return {
         "id": movie["id"], "title": movie["title"], "year": movie["year"],
-        "genres": movie["genre"].split(","), "status": movie["status"],
+        "genres": movie["genre"].split(",") if movie["genre"] else [], "status": movie["status"],
         "rating": movie["rating"], "note": movie["note"], "hidden": bool(movie["hidden"])
     }
 
@@ -52,16 +54,23 @@ def update_movie(movie_id, status=None, rating=None, note=None, hidden=None):
     if movie is None:
         return None
 
+    # only switch to watched if this request sets a rating or a note (clearing them doesn't count)
+    setting_rating_or_note = (rating is not None and rating != 0) or (note is not None and note != "")
+
     if status is None:
         status = movie["status"]
     if rating is None:
         rating = movie["rating"]
+    elif rating == 0:
+        rating = None  # 0 means clear the rating
     if note is None:
         note = movie["note"]
+    elif note == "":
+        note = None  # empty string means clear the note
     if hidden is None:
         hidden = movie["hidden"]
 
-    if (rating is not None or note is not None) and status != "watched":
+    if setting_rating_or_note and status != "watched":
         status = "watched"
 
     c.execute(

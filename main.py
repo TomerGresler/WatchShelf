@@ -13,27 +13,25 @@ class ListCreate(BaseModel):
 class MovieAdd(BaseModel):
     title:str
     year:int
-    genres:list
+    genres:list[str]
 
 class MovieIdBody(BaseModel):
     movie_id: int
 
 class MovieUpdate(BaseModel):
     status: Literal["none", "want_to_watch", "watched"] | None = None
-    rating: int | None = Field(default=None, ge=1, le=5)
-    note: str | None = None
+    rating: int | None = Field(default=None, ge=0, le=5)  # 0 clears the rating
+    note: str | None = None  # "" clears the note
     hidden: bool | None = None
 app = FastAPI()
 @app.get("/")
 async def root():
-    return {"message": "Hello World"}
+    return {"message": "WatchShelf API - see /docs for all endpoints"}
 
 @app.get("/movies")
 async def movies(title: str | None = None):
     if title:
         movies_list = movies_data.get_movie_by_title_partialmatch(title)
-        if not movies_list:
-            raise HTTPException(status_code=404, detail="Movie not found")
     else:
         movies_list = movies_data.get_all_movies()
     return {"movies": movies_list }
@@ -52,11 +50,11 @@ async def get_movie_by_id(movie_id: int):
         raise HTTPException(status_code=404, detail="Movie not found")
     return movie
 
-@app.post("/movies")
+@app.post("/movies", status_code=201)
 async def post_movie(movie: MovieAdd):
     added = movies_data.add_movie(movie.title, movie.year, movie.genres)
     if added is None:
-        raise HTTPException(status_code=404, detail="Movie already exists")
+        raise HTTPException(status_code=409, detail="Movie already exists")
     return {"movie": added}
 
 @app.patch("/movies/{id}")
@@ -70,17 +68,15 @@ async def patch_movie(id: int, movie: MovieUpdate):
 async def lists(name: str | None = None):
     if name:
         lists_list = lists_data.get_list_by_name_partialmatch(name)
-        if not lists_list:
-            raise HTTPException(status_code=404, detail="List not found")
     else:
         lists_list = lists_data.get_all_lists()
     return {"lists": lists_list }
 
-@app.post("/lists")
+@app.post("/lists", status_code=201)
 async def post_list(list_data: ListCreate):
     added = lists_data.create_list(list_data.name)
     if added is None:
-        raise HTTPException(status_code=404, detail="List already exists")
+        raise HTTPException(status_code=409, detail="List already exists")
     return {"list": added}
 
 @app.get("/lists/{list_id}/movies")
@@ -89,11 +85,15 @@ async def get_list_movies(list_id: int, sort: Literal["title", "year", "rating"]
         raise HTTPException(status_code=404, detail="List not found")
     return {"movies": list_movies_data.get_movies_in_list(list_id, sort)}
 
-@app.post("/lists/{list_id}/movies")
+@app.post("/lists/{list_id}/movies", status_code=201)
 async def add_list_movie(list_id: int, body: MovieIdBody):
+    if not list_movies_data.list_exists(list_id):
+        raise HTTPException(status_code=404, detail="List not found")
+    if movies_data.get_movie_by_id(body.movie_id) is None:
+        raise HTTPException(status_code=404, detail="Movie not found")
     added = list_movies_data.add_movie_to_list(list_id, body.movie_id)
     if added is None:
-        raise HTTPException(status_code=404, detail="Could not add movie. Movie not found, list not found, or already in list")
+        raise HTTPException(status_code=409, detail="Movie already in list")
     return added
 
 @app.delete("/lists/{list_id}/movies/{movie_id}")

@@ -1,5 +1,7 @@
 import sqlite3
-conn = sqlite3.connect('database.db')
+import os
+conn = sqlite3.connect(os.environ.get('WATCHSHELF_DB', 'database.db'), check_same_thread=False)
+conn.execute("PRAGMA foreign_keys = ON")
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 
