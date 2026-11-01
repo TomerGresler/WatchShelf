@@ -1,5 +1,8 @@
 import sqlite3
-conn = sqlite3.connect('database.db')
+import os
+from movies_data import _movie_dict
+conn = sqlite3.connect(os.environ.get('WATCHSHELF_DB', 'database.db'), check_same_thread=False)
+conn.execute("PRAGMA foreign_keys = ON")
 conn.row_factory = sqlite3.Row
 c = conn.cursor()
 
@@ -39,7 +42,7 @@ def get_movies_in_list(list_id, sort=None):
                movies.status, movies.rating, movies.note, movies.hidden
         FROM movies
         JOIN list_movies ON movies.id = list_movies.movie_id
-        WHERE list_movies.list_id = ?
+        WHERE list_movies.list_id = ? AND movies.hidden = 0
     """
     if sort == "title":
         query += " ORDER BY movies.title"
@@ -52,12 +55,7 @@ def get_movies_in_list(list_id, sort=None):
     rows = c.fetchall()
     movies_list = []
     for movie in rows:
-        movie_dict = {
-            "id": movie["id"], "title": movie["title"], "year": movie["year"],
-            "genres": movie["genre"].split(","), "status": movie["status"],
-            "rating": movie["rating"], "note": movie["note"], "hidden": bool(movie["hidden"])
-        }
-        movies_list.append(movie_dict)
+        movies_list.append(_movie_dict(movie))
     return movies_list
 
 def list_exists(list_id):

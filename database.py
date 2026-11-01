@@ -1,5 +1,7 @@
 import sqlite3
-conn = sqlite3.connect('database.db')
+import os
+conn = sqlite3.connect(os.environ.get('WATCHSHELF_DB', 'database.db'), check_same_thread=False)
+conn.execute("PRAGMA foreign_keys = ON")
 c = conn.cursor()
 
 c.execute("""
@@ -55,12 +57,13 @@ def seed_movie(title, year, genre, status="none", rating=None, note=None, hidden
         (title, year, genre, status, rating, note, hidden)
     )
 
+# fix the wrong Toy Story year in databases that were seeded before
+c.execute("UPDATE movies SET year = 1995 WHERE title = 'Toy Story' AND year = 1997 AND genre = 'family,animation,comedy'")
+
 seed_movie("Inception", 2010, "Sci-fi")
-seed_movie("Toy Story", 1997, "family,animation,comedy", status="watched", rating=5, note="still holds up")
+seed_movie("Toy Story", 1995, "family,animation,comedy", status="watched", rating=5, note="still holds up")
 seed_movie("Interstellar", 2014, "sci-fi,drama", status="want_to_watch")
 seed_movie("Movie I Regret Watching", 2005, "drama", status="watched", rating=1, hidden=1)
 
 conn.commit()
-
-c.execute("SELECT * FROM movies")
 
